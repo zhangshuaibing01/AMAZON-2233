@@ -1,4 +1,4 @@
-name: Deploy 1122 Web Console
+name: Deploy 2233 Web Console
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: "1122-web-pages"
+  group: "2233-web-pages"
   cancel-in-progress: true
 
 jobs:
@@ -70,21 +70,21 @@ jobs:
           echo "Approved frontend artifact:"
           find dist -type f -maxdepth 3 -printf '%P\n' | sort
 
-      - name: Deploy latest 1122 Web Console
+      - name: Deploy latest 2233 Web Console
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
-          npx --yes wrangler@4 pages deploy dist --project-name=1122-web-agent --branch=main --commit-dirty=true
-          echo "Stable URL: https://1122-web-agent.pages.dev"
+          npx --yes wrangler@4 pages deploy dist --project-name=2233-web-agent --branch=main --commit-dirty=true
+          echo "Stable URL: https://2233-web-agent.pages.dev"
 
       - name: Verify deployed homepage
         shell: bash
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5 6; do
-            if curl -fsS --retry 2 --retry-delay 2 https://1122-web-agent.pages.dev/ | grep -q '1122 亚马逊智能经营系统'; then
+            if curl -fsS --retry 2 --retry-delay 2 https://2233-web-agent.pages.dev/ | grep -q '1122 亚马逊智能经营系统'; then
               echo "Deployment smoke test: PASS"
               exit 0
             fi
@@ -92,5 +92,15 @@ jobs:
           done
           echo "Deployment smoke test failed" >&2
           exit 1
+
+      - name: Check 2233 custom domain (non-blocking)
+        shell: bash
+        continue-on-error: true
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://2233.sorilo-uk.com/ || echo 000)
+          echo "2233.sorilo-uk.com -> HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::2233.sorilo-uk.com is not serving yet. Attach the custom domain to the 2233-web-agent Pages project in Cloudflare."
+          fi
 
 # deployment marker: web-console-v2
