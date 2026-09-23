@@ -1,0 +1,65 @@
+name: Deploy 6688 Site
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "6688/**"
+      - ".github/workflows/deploy-6688-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "6688-site-pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Cloudflare token
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN is missing" >&2
+            exit 2
+          fi
+
+      - name: Validate site artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f 6688/index.html
+          grep -q '6688' 6688/index.html
+
+      - name: Deploy to Cloudflare Pages
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 pages deploy 6688 --project-name=6688 --branch=main --commit-dirty=true
+          echo "Stable URL: https://6688.pages.dev"
+
+      - name: Verify custom domain (non-blocking)
+        shell: bash
+        continue-on-error: true
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://6688.sorilo-uk.com/ || echo 000)
+          echo "6688.sorilo-uk.com -> HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::6688.sorilo-uk.com is not serving yet. Attach the custom domain to the 6688 Pages project in Cloudflare."
+          fi
